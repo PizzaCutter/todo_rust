@@ -1,0 +1,18 @@
+[package]
+name = "todo_rust"
+version = "0.1.0"
+edition = "2021"
+
+# IDEA FOR THE PROGRAM 
+# Terminal style to-do lists
+# View daily todo's and longer term todo's (ideally have seperate files for them)
+# Have some commands to print out total amount of achieved todo's
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+num = "0.4.0"
+crossterm = "0.25.0"
+tui = "0.19.0"
+unicode-width = "0.1.10"
