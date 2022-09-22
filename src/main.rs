@@ -14,7 +14,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::{error::Error, io};
+use std::{error::Error, io, thread::current};
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
@@ -26,6 +26,7 @@ use tui::{
 use unicode_width::UnicodeWidthStr;
 
 extern crate num;
+use std::cmp;
 
 enum InputMode {
     Normal,
@@ -60,6 +61,13 @@ impl Default for TodoData {
     }
 }
 
+enum MoveCursorOperation {
+    MoveRight,
+    MoveLeft,
+    MoveUp,
+    MoveDown,
+}
+
 /// App holds the state of the application
 struct App {
     /// Current value of the input box
@@ -72,8 +80,8 @@ struct App {
     messages: Vec<TodoData>,
     /// Long term todo's
     long_term_todo : Vec<TodoData>,
-    target_row : u32,
-    target_column : u32
+    target_row : i32,
+    target_column : i32
 }
 
 impl Default for App {
@@ -113,23 +121,78 @@ impl App {
         }
     }
 
+    fn get_current_message(&self) -> String {
+        self.get_messages()[self.target_row as usize].message.clone()
+    }
+
     fn push_message(&mut self, new_entry : TodoData) {
         self.input = String::new();
         self.get_messages_mut().push(new_entry);
     }
 
-    fn add_char(&mut self, new_char : char) 
-    {
+    fn add_char(&mut self, new_char : char) {
         self.input.push(new_char);
         let target_index = self.target_row;
         self.get_messages_mut()[target_index as usize].message = self.input.clone();
+        self.target_column += 1;
     }
 
-    fn remove_char(&mut self)
-    {
+    fn remove_char(&mut self) {
         self.input.pop();
         let target_index = self.target_row;
         self.get_messages_mut()[target_index as usize].message = self.input.clone();
+        self.target_column -=1;
+    }
+
+    fn clamp_row(&mut self)
+    {
+        self.target_row = num::clamp(self.target_row, 0, self.get_messages().len() as i32 - 1);
+    }
+
+    fn clamp_column(&mut self)
+    {
+        let current_message_length = cmp::max(self.get_current_message().len() as i32 - 1, 0);
+        self.target_column = num::clamp(self.target_column, 0, current_message_length);
+    }
+
+    fn move_cursor(&mut self, move_operation : MoveCursorOperation) {
+        match move_operation {
+            MoveCursorOperation::MoveDown => {
+                self.target_row += 1; 
+            }
+            MoveCursorOperation::MoveUp => {
+                self.target_row -= 1;
+            }
+            MoveCursorOperation::MoveLeft => {
+                self.target_column -= 1;
+            }
+            MoveCursorOperation::MoveRight => {
+                self.target_column += 1;
+            }
+        }
+        
+        self.clamp_row();
+        self.clamp_column();
+    }
+
+    fn new_line(&mut self)
+    {
+        let prev_messages = self.get_messages();
+
+        // 1. Push new line to todo queue as we've finished writing current one
+        if self.target_row as usize >= prev_messages.len() - 1 {
+            let new_entry = TodoData { 
+                message : String::new(),
+                status : Status::TODO
+            };
+            self.push_message(new_entry);
+            self.target_row += 1;
+            self.target_column = 0;
+        }
+
+        let cur_messages = self.get_messages();
+        self.input = cur_messages[self.target_row as usize].message.clone();
+        self.input_mode = InputMode::Normal;
     }
 }
 
@@ -187,34 +250,23 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                         }
                     }
                     KeyCode::Up => {
-                        // Requires casting to i32 here to not get substract overflow because of  u32
-                        app.target_row = num::clamp(app.target_row as i32 - 1, 0, app.get_messages().len() as i32 - 1) as u32;
-                        println!("{}", app.target_row);
+                        app.move_cursor(MoveCursorOperation::MoveUp);
                     }
                     KeyCode::Down => {
-                        // Requires casting to i32 here to not get substract overflow because of  u32
-                        app.target_row = num::clamp(app.target_row as i32 + 1, 0, app.get_messages().len() as i32 - 1) as u32;
+                        app.move_cursor(MoveCursorOperation::MoveDown);
+                    }
+                    KeyCode::Left => {
+                        app.move_cursor(MoveCursorOperation::MoveLeft);
+                    }
+                    KeyCode::Right => {
+                        app.move_cursor(MoveCursorOperation::MoveRight);
                     }
                     _ => {}
                 },
 
                 InputMode::Editing => match key.code {
                     KeyCode::Enter => {
-                        // 1. Push new line to todo queue as we've finished writing current one
-                        let new_entry = TodoData { 
-                            message : String::new(),
-                            status : Status::TODO
-                        };
-                        app.push_message(new_entry);
-
-                        // 2. Clear input
-                        app.input = String::new();
-
-                        // 3. Move to next line
-                        app.target_row += 1;
-
-                        // 4. Exit editing mode
-                        app.input_mode = InputMode::Normal;
+                        app.new_line();
                     }
                     KeyCode::Char(c) => {
                         app.add_char(c);
@@ -224,6 +276,18 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     }
                     KeyCode::Esc => {
                         app.input_mode = InputMode::Normal;
+                    }
+                    KeyCode::Up => {
+                        app.move_cursor(MoveCursorOperation::MoveUp);
+                    }
+                    KeyCode::Down => {
+                        app.move_cursor(MoveCursorOperation::MoveDown);
+                    }
+                    KeyCode::Left => {
+                        app.move_cursor(MoveCursorOperation::MoveLeft);
+                    }
+                    KeyCode::Right => {
+                        app.move_cursor(MoveCursorOperation::MoveRight);
                     }
                     _ => {}
                 },
@@ -339,11 +403,11 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
             }));
     f.render_widget(messages, chunks[2]);
 
-    let x_offset = 4;
+    let x_offset = 4 + app.target_column as u16;
     let y_offset = 1 + app.target_row as u16;
 
     f.set_cursor(
-        chunks[2].x + x_offset + app.input.width() as u16,
+        chunks[2].x + x_offset,
         chunks[2].y + y_offset 
     )
 }
