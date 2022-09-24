@@ -173,6 +173,9 @@ impl App {
         
         self.clamp_row();
         self.clamp_column();
+
+        let cur_messages = self.get_messages();
+        self.input = cur_messages[self.target_row as usize].message.clone();
     }
 
     fn new_line(&mut self)
@@ -193,6 +196,21 @@ impl App {
         let cur_messages = self.get_messages();
         self.input = cur_messages[self.target_row as usize].message.clone();
         self.input_mode = InputMode::Normal;
+    }
+
+    fn change_target_mode(&mut self) 
+    {
+        if self.target_mode == TargetMode::Daily {
+            self.target_mode = TargetMode::LongTerm;
+            self.target_row = 0;
+        }
+        else {
+            self.target_mode = TargetMode::Daily;
+            self.target_row = 0;
+        }
+
+        let cur_messages = self.get_messages();
+        self.input = cur_messages[self.target_row as usize].message.clone();
     }
 }
 
@@ -239,15 +257,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                         return Ok(());
                     }
                     KeyCode::Char('t') => {
-                        // TODO[rsmekens]: 
-                        if app.target_mode == TargetMode::Daily {
-                            app.target_mode = TargetMode::LongTerm;
-                            app.target_row = 0;
-                        }
-                        else {
-                            app.target_mode = TargetMode::Daily;
-                            app.target_row = 0;
-                        }
+                        app.change_target_mode();
                     }
                     KeyCode::Up => {
                         app.move_cursor(MoveCursorOperation::MoveUp);
