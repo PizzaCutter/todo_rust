@@ -42,7 +42,6 @@ enum TargetMode {
 #[derive(Copy, Clone)]
 enum Status {
     TODO,
-    REJECTED,
     DONE
 }
 
@@ -212,6 +211,29 @@ impl App {
         let cur_messages = self.get_messages();
         self.input = cur_messages[self.target_row as usize].message.clone();
     }
+
+    fn remove_message(&mut self) {
+        let index_to_remove = self.target_row as usize;
+        let cur_messages = self.get_messages_mut();
+        cur_messages.remove(index_to_remove);
+
+        if cur_messages.len() <= 0 {
+            let new_entry = TodoData { 
+                message : String::new(),
+                status : Status::TODO
+            };
+            self.push_message(new_entry);
+        }
+
+        self.move_cursor(MoveCursorOperation::MoveUp);
+    }
+
+    fn set_message_status(&mut self, new_status : Status)
+    {
+        let target_index = self.target_row as usize;
+        let cur_messages = self.get_messages_mut();
+        cur_messages[target_index].status = new_status;
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -258,6 +280,12 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     }
                     KeyCode::Char('t') => {
                         app.change_target_mode();
+                    }
+                    KeyCode::Char('r') => {
+                        app.remove_message();
+                    }
+                    KeyCode::Char('d') => {
+                        app.set_message_status(Status::DONE);
                     }
                     KeyCode::Up => {
                         app.move_cursor(MoveCursorOperation::MoveUp);
@@ -338,9 +366,13 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
                 Span::styled("q", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw(" to exit, "),
                 Span::styled("e", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to start editing."),
+                Span::raw(" to start editing "),
                 Span::styled("t", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to change todo type")
+                Span::raw(" to change todo type "),
+                Span::styled("d", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to set status to done "),
+                Span::styled("r", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to remove the message "),
             ],
             Style::default().add_modifier(Modifier::RAPID_BLINK),
         ),
@@ -383,13 +415,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
         }
     }
 
-    let messages_to_display : Vec<String> =app.get_messages() 
-        .iter()
-        .enumerate()
-        .map(|(i, m)| {
-            m.message.clone()
-        })
-        .collect();
+    let messages_to_display : Vec<TodoData> =app.get_messages();
     let mut title = get_title(&app);
 
 
@@ -397,7 +423,12 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
         .iter()
         .enumerate()
         .map(|(i, m)| {
-            let content = vec![Spans::from(Span::raw(format!("{}: {}", i, m)))];
+            let prefix = match m.status {
+                Status::TODO => '#',
+                Status::DONE => '*'
+
+            };
+            let content = vec![Spans::from(Span::raw(format!("{} {}", prefix, m.message)))];
             ListItem::new(content)
         })
         .collect();
@@ -413,7 +444,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
             }));
     f.render_widget(messages, chunks[2]);
 
-    let x_offset = 4 + app.target_column as u16;
+    let x_offset = 3 + app.target_column as u16;
     let y_offset = 1 + app.target_row as u16;
 
     f.set_cursor(
