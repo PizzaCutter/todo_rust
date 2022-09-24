@@ -8,6 +8,8 @@ edition = "2021"
 # View daily todo's and longer term todo's (ideally have seperate files for them)
 # Have some commands to print out total amount of achieved todo's
 
+# NEXT TODO
+# Load/Save the todo's to a file with timestamp (todo not done yesterday should be taken over once new day starts)
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
