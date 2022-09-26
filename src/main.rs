@@ -14,7 +14,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::{error::Error, io, thread::current};
+use std::{error::Error, io};
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
@@ -41,8 +41,8 @@ enum TargetMode {
 
 #[derive(Copy, Clone)]
 enum Status {
-    TODO,
-    DONE
+    Todo,
+    Done
 }
 
 #[derive(Clone)]
@@ -55,16 +55,16 @@ impl Default for TodoData {
     fn default() -> TodoData {
         TodoData {
             message: String::new(),
-            status: Status::TODO
+            status: Status::Todo
         }
     }
 }
 
 enum MoveCursorOperation {
-    MoveRight,
-    MoveLeft,
-    MoveUp,
-    MoveDown,
+    Right,
+    Left,
+    Up,
+    Down,
 }
 
 /// App holds the state of the application
@@ -138,7 +138,7 @@ impl App {
     }
 
     fn remove_char(&mut self) {
-        if self.input.len() <= 0 {
+        if self.input.is_empty() {
             return;
         }
 
@@ -165,16 +165,16 @@ impl App {
 
     fn move_cursor(&mut self, move_operation : MoveCursorOperation) {
         match move_operation {
-            MoveCursorOperation::MoveDown => {
+            MoveCursorOperation::Down => {
                 self.target_row += 1; 
             }
-            MoveCursorOperation::MoveUp => {
+            MoveCursorOperation::Up => {
                 self.target_row -= 1;
             }
-            MoveCursorOperation::MoveLeft => {
+            MoveCursorOperation::Left => {
                 self.target_column -= 1;
             }
-            MoveCursorOperation::MoveRight => {
+            MoveCursorOperation::Right => {
                 self.target_column += 1;
             }
         }
@@ -194,7 +194,7 @@ impl App {
         if self.target_row as usize >= prev_messages.len() - 1 {
             let new_entry = TodoData { 
                 message : String::new(),
-                status : Status::TODO
+                status : Status::Todo
             };
             self.push_message(new_entry);
             self.target_row += 1;
@@ -226,15 +226,15 @@ impl App {
         let cur_messages = self.get_messages_mut();
         cur_messages.remove(index_to_remove);
 
-        if cur_messages.len() <= 0 {
+        if cur_messages.is_empty() {
             let new_entry = TodoData { 
                 message : String::new(),
-                status : Status::TODO
+                status : Status::Todo
             };
             self.push_message(new_entry);
         }
 
-        self.move_cursor(MoveCursorOperation::MoveUp);
+        self.move_cursor(MoveCursorOperation::Up);
     }
 
     fn set_message_status(&mut self, new_status : Status)
@@ -294,19 +294,19 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                         app.remove_message();
                     }
                     KeyCode::Char('d') => {
-                        app.set_message_status(Status::DONE);
+                        app.set_message_status(Status::Done);
                     }
                     KeyCode::Up => {
-                        app.move_cursor(MoveCursorOperation::MoveUp);
+                        app.move_cursor(MoveCursorOperation::Up);
                     }
                     KeyCode::Down => {
-                        app.move_cursor(MoveCursorOperation::MoveDown);
+                        app.move_cursor(MoveCursorOperation::Down);
                     }
                     KeyCode::Left => {
-                        app.move_cursor(MoveCursorOperation::MoveLeft);
+                        app.move_cursor(MoveCursorOperation::Left);
                     }
                     KeyCode::Right => {
-                        app.move_cursor(MoveCursorOperation::MoveRight);
+                        app.move_cursor(MoveCursorOperation::Right);
                     }
                     _ => {}
                 },
@@ -325,16 +325,16 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                         app.input_mode = InputMode::Normal;
                     }
                     KeyCode::Up => {
-                        app.move_cursor(MoveCursorOperation::MoveUp);
+                        app.move_cursor(MoveCursorOperation::Up);
                     }
                     KeyCode::Down => {
-                        app.move_cursor(MoveCursorOperation::MoveDown);
+                        app.move_cursor(MoveCursorOperation::Down);
                     }
                     KeyCode::Left => {
-                        app.move_cursor(MoveCursorOperation::MoveLeft);
+                        app.move_cursor(MoveCursorOperation::Left);
                     }
                     KeyCode::Right => {
-                        app.move_cursor(MoveCursorOperation::MoveRight);
+                        app.move_cursor(MoveCursorOperation::Right);
                     }
                     _ => {}
                 },
@@ -346,10 +346,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
 fn get_title(app : &App) -> String {
         match app.target_mode {
         TargetMode::Daily => {
-            return "Daily".to_string(); 
+            "Daily".to_string() 
         },
         TargetMode::LongTerm => {
-            return "Long Term".to_string();
+            "Long Term".to_string()
         }
     }
 }
@@ -425,16 +425,15 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
     }
 
     let messages_to_display : Vec<TodoData> =app.get_messages();
-    let mut title = get_title(&app);
-
+    let title = get_title(app);
 
     let messages: Vec<ListItem> = messages_to_display
         .iter()
         .enumerate()
-        .map(|(i, m)| {
+        .map(|(_index, m)| {
             let prefix = match m.status {
-                Status::TODO => '#',
-                Status::DONE => '*'
+                Status::Todo => '#',
+                Status::Done => '*'
 
             };
             let content = vec![Spans::from(Span::raw(format!("{} {}", prefix, m.message)))];
