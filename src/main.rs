@@ -130,14 +130,23 @@ impl App {
     }
 
     fn add_char(&mut self, new_char : char) {
-        self.input.push(new_char);
+        let input_index = self.target_column as usize;
+        self.input.insert(input_index, new_char);
         let target_index = self.target_row;
         self.get_messages_mut()[target_index as usize].message = self.input.clone();
         self.target_column += 1;
     }
 
     fn remove_char(&mut self) {
-        self.input.pop();
+        if self.input.len() <= 0 {
+            return;
+        }
+
+        if self.target_column <= 0 {
+            return;
+        }
+
+        self.input.remove((self.target_column - 1) as usize);
         let target_index = self.target_row;
         self.get_messages_mut()[target_index as usize].message = self.input.clone();
         self.target_column -=1;
