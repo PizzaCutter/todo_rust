@@ -17,6 +17,8 @@ use unicode_width::UnicodeWidthStr;
 extern crate num;
 use std::cmp;
 
+mod file_manager;
+
 enum InputMode {
     Normal,
     Editing,
@@ -235,6 +237,9 @@ impl App {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let file_manager = file_manager::FileManager::new();
+    file_manager.initialize();
+
     // setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
